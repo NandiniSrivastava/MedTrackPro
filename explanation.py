@@ -1,7 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import shap
 import streamlit as st
+import pandas as pd
+from sklearn.inspection import permutation_importance
+from eli5.sklearn import explain_weights
+from eli5.formatters import format_as_dict
 
 def plot_feature_importance(model, model_type, feature_names):
     """
@@ -52,60 +55,41 @@ def plot_feature_importance(model, model_type, feature_names):
     
     return fig
 
-def explain_prediction_shap(model, model_type, X_sample, feature_names):
+def explain_prediction_permutation(model, X_test, y_test, feature_names):
     """
-    Generate SHAP values for model explanation.
+    Generate permutation feature importance for model explanation.
     
     Args:
         model: Trained model
-        model_type (str): Type of model
-        X_sample: Sample data to explain (can be subset of test data)
+        X_test: Test data features
+        y_test: Test data labels
         feature_names (list): Names of features
     
     Returns:
-        matplotlib.figure.Figure: SHAP summary plot
+        matplotlib.figure.Figure: Permutation importance plot
     """
-    # Convert to numpy for compatibility with SHAP
-    X_numpy = X_sample.values
+    # Calculate permutation importance
+    perm_importance = permutation_importance(model, X_test, y_test, n_repeats=10, random_state=42)
     
-    # Different explainers for different model types
-    if model_type == "Logistic Regression":
-        # Linear explainer for linear models
-        explainer = shap.LinearExplainer(model, X_numpy, feature_perturbation="interventional")
+    # Sort features by importance
+    sorted_idx = perm_importance.importances_mean.argsort()[::-1]
     
-    elif model_type in ["Random Forest", "Gradient Boosting"]:
-        # Tree explainer for tree-based models
-        explainer = shap.TreeExplainer(model)
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 8))
     
-    elif model_type == "Support Vector Machine":
-        # Kernel explainer for SVM (computationally intensive)
-        X_background = shap.sample(X_numpy, 100)  # Sample for background
-        explainer = shap.KernelExplainer(model.predict_proba, X_background)
+    # Plot sorted importance values
+    ax.barh(range(len(sorted_idx)), perm_importance.importances_mean[sorted_idx])
+    ax.set_yticks(range(len(sorted_idx)))
+    ax.set_yticklabels([feature_names[i] for i in sorted_idx])
+    ax.set_title("Permutation Feature Importance")
+    ax.set_xlabel("Importance (decrease in model performance when feature is permuted)")
     
-    else:
-        # Default to Kernel explainer for other models
-        X_background = shap.sample(X_numpy, 100)  # Sample for background
-        explainer = shap.KernelExplainer(model.predict_proba, X_background)
-    
-    # Calculate SHAP values
-    shap_values = explainer.shap_values(X_numpy)
-    
-    # For models that return a list of arrays (one per class)
-    if isinstance(shap_values, list):
-        # Take values for the positive class (assuming binary classification)
-        shap_values = shap_values[1]
-    
-    # Create SHAP summary plot
-    plt.figure()
-    fig = plt.gcf()
-    shap.summary_plot(shap_values, X_numpy, feature_names=feature_names, show=False)
     plt.tight_layout()
-    
     return fig
 
-def plot_individual_shap(model, model_type, sample, feature_names):
+def plot_prediction_explanation(model, model_type, sample, feature_names):
     """
-    Generate SHAP waterfall plot for an individual prediction.
+    Generate a simple explanation for an individual prediction based on feature contributions.
     
     Args:
         model: Trained model
@@ -114,40 +98,60 @@ def plot_individual_shap(model, model_type, sample, feature_names):
         feature_names (list): Names of features
     
     Returns:
-        matplotlib.figure.Figure: SHAP waterfall plot
+        matplotlib.figure.Figure: Feature contribution plot
     """
-    # Convert to numpy for compatibility with SHAP
-    sample_numpy = sample.values
+    # Create a figure
+    fig, ax = plt.subplots(figsize=(10, 8))
     
-    # Different explainers for different model types
+    # Different visualization based on model type
     if model_type == "Logistic Regression":
-        # Linear explainer for linear models
-        explainer = shap.LinearExplainer(model, sample_numpy, feature_perturbation="interventional")
-    
+        # For logistic regression, use coefficients to show contribution
+        # Get feature values and multiply by coefficients
+        feature_values = sample.values[0]
+        coefficients = model.coef_[0]
+        
+        # Calculate contribution
+        contributions = feature_values * coefficients
+        
+        # Sort by absolute contribution
+        sorted_idx = np.abs(contributions).argsort()[::-1]
+        
+        # Plot top contributions
+        top_n = min(10, len(sorted_idx))
+        colors = ['green' if c > 0 else 'red' for c in contributions[sorted_idx[:top_n]]]
+        
+        ax.barh(range(top_n), contributions[sorted_idx[:top_n]], color=colors)
+        ax.set_yticks(range(top_n))
+        ax.set_yticklabels([feature_names[i] for i in sorted_idx[:top_n]])
+        ax.set_title('Feature Contributions to Prediction')
+        ax.set_xlabel('Contribution (positive = higher churn probability)')
+        
     elif model_type in ["Random Forest", "Gradient Boosting"]:
-        # Tree explainer for tree-based models
-        explainer = shap.TreeExplainer(model)
-    
+        # For tree models, we'll plot feature contributions based on their importance
+        # This is a simplification since individual predictions are complex in these models
+        importances = model.feature_importances_
+        feature_values = sample.values[0]
+        
+        # Scale feature values to [0,1] for visualization
+        scaled_values = (feature_values - np.min(feature_values)) / (np.max(feature_values) - np.min(feature_values) + 1e-10)
+        
+        # Calculate simplified contribution (importance * scaled value)
+        contributions = importances * scaled_values
+        
+        # Sort by contribution
+        sorted_idx = contributions.argsort()[::-1]
+        
+        # Plot top contributions
+        top_n = min(10, len(sorted_idx))
+        ax.barh(range(top_n), contributions[sorted_idx[:top_n]])
+        ax.set_yticks(range(top_n))
+        ax.set_yticklabels([feature_names[i] for i in sorted_idx[:top_n]])
+        ax.set_title('Estimated Feature Contributions')
+        ax.set_xlabel('Estimated Contribution to Prediction')
+        
     else:
-        # Default to Kernel explainer for other models
-        explainer = shap.KernelExplainer(model.predict_proba, sample_numpy)
+        ax.text(0.5, 0.5, f"Individual prediction explanation is not available for {model_type}", 
+                ha='center', va='center', fontsize=12)
     
-    # Calculate SHAP values
-    shap_values = explainer.shap_values(sample_numpy)
-    
-    # For models that return a list of arrays (one per class)
-    if isinstance(shap_values, list):
-        # Take values for the positive class (assuming binary classification)
-        shap_values = shap_values[1]
-    
-    # Create SHAP waterfall plot
-    plt.figure(figsize=(10, 8))
-    fig = plt.gcf()
-    shap.waterfall_plot(explainer.expected_value[1] if isinstance(explainer.expected_value, np.ndarray) 
-                      else explainer.expected_value, 
-                      shap_values[0], 
-                      feature_names=feature_names,
-                      show=False)
     plt.tight_layout()
-    
     return fig

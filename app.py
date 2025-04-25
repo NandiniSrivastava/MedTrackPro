@@ -11,7 +11,7 @@ from data_loader import load_telco_data
 from preprocessing import preprocess_data, encode_categorical_features, handle_missing_values
 from model import select_model, train_model, get_model_params
 from evaluation import evaluate_model, plot_confusion_matrix, plot_roc_curve
-from explanation import plot_feature_importance, explain_prediction_shap
+from explanation import plot_feature_importance, explain_prediction_permutation, plot_prediction_explanation
 from utils import display_step_info, display_metrics_explanation
 
 # Set page configuration
@@ -804,16 +804,16 @@ elif st.session_state.current_step == 'model_interpretation':
                         
                         # Interpret with SHAP
                         st.markdown("#### Feature Contributions")
-                        from explanation import plot_individual_shap
+                        from explanation import plot_prediction_explanation
                         
-                        shap_fig = plot_individual_shap(
+                        explanation_fig = plot_prediction_explanation(
                             st.session_state.model, 
                             st.session_state.model_type, 
                             x_to_explain,
                             st.session_state.feature_names
                         )
                         
-                        st.pyplot(shap_fig)
+                        st.pyplot(explanation_fig)
                         
                         with st.expander("How to interpret this plot?"):
                             st.markdown("""
