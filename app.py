@@ -640,9 +640,12 @@ elif st.session_state.current_step == 'model_evaluation':
         with col2:
             st.markdown("#### Additional Metrics")
             st.write(f"Balanced Accuracy: {metrics['balanced_accuracy']:.4f}")
-            if probabilities is not None:
+            if probabilities is not None and metrics['roc_auc'] is not None:
                 st.write(f"ROC AUC: {metrics['roc_auc']:.4f}")
                 st.write(f"PR AUC: {metrics['pr_auc']:.4f}")
+            else:
+                st.write("ROC AUC: Not available")
+                st.write("PR AUC: Not available")
             
         # Display classification report
         st.markdown("#### Classification Report")
@@ -723,11 +726,11 @@ elif st.session_state.current_step == 'model_interpretation':
                 Higher importance means the feature has a stronger influence on the churn prediction. Features can have positive impact (increasing churn probability) or negative impact (decreasing churn probability).
                 """)
         
-        # SHAP values for model interpretation
-        st.markdown("#### SHAP Value Analysis")
+        # Permutation importance for model interpretation
+        st.markdown("#### Permutation Feature Importance")
         
-        if st.button("Generate SHAP Values (may take a moment)"):
-            with st.spinner("Generating SHAP values..."):
+        if st.button("Generate Feature Importance (may take a moment)"):
+            with st.spinner("Generating permutation feature importance..."):
                 try:
                     # Get a sample of the test data to explain
                     if len(st.session_state.X_test) > 100:
