@@ -736,32 +736,33 @@ elif st.session_state.current_step == 'model_interpretation':
                     else:
                         X_sample = st.session_state.X_test
                     
-                    # Generate SHAP summary plot
-                    summary_plot = explain_prediction_shap(
+                    # Generate permutation importance plot instead of SHAP
+                    summary_plot = explain_prediction_permutation(
                         st.session_state.model,
-                        st.session_state.model_type,
-                        X_sample,
+                        st.session_state.X_test,
+                        st.session_state.y_test,
                         st.session_state.feature_names
                     )
                     
                     st.pyplot(summary_plot)
                     
-                    with st.expander("How to interpret SHAP values?"):
+                    with st.expander("How to interpret Permutation Importance?"):
                         st.markdown("""
-                        SHAP (SHapley Additive exPlanations) values explain individual predictions:
+                        Permutation Importance explains model predictions by measuring how much the model's performance decreases when a feature's values are randomly shuffled:
                         
-                        - Each point represents a feature's impact on a single prediction
                         - Features are ordered by importance (top to bottom)
-                        - Color represents the feature value (red = high, blue = low)
-                        - Position on x-axis shows impact:
-                          - Positive values (right) increase the prediction
-                          - Negative values (left) decrease the prediction
+                        - Longer bars indicate more important features
+                        - The values represent how much model performance decreases when each feature is shuffled
+                        - Higher values mean more important features
                         
-                        For example, if "Contract_One year" has many red dots on the negative side, it means customers with one-year contracts (high value = red) are less likely to churn (negative impact on churn prediction).
+                        Unlike SHAP values, permutation importance:
+                        - Shows global feature importance rather than per-prediction impact
+                        - Is computationally efficient for large datasets
+                        - Doesn't depend on model internals, so works for any model type
                         """)
                     
                 except Exception as e:
-                    st.error(f"Error generating SHAP values: {e}")
+                    st.error(f"Error generating feature importance plot: {e}")
         
         # Individual prediction explanation
         st.markdown("### Explain Individual Predictions")
@@ -802,7 +803,7 @@ elif st.session_state.current_step == 'model_interpretation':
                         st.markdown("#### Customer Information")
                         st.dataframe(x_to_explain.T.rename(columns={sample_index: "Value"}))
                         
-                        # Interpret with SHAP
+                        # Interpret with feature contributions
                         st.markdown("#### Feature Contributions")
                         from explanation import plot_prediction_explanation
                         
@@ -872,7 +873,7 @@ elif st.session_state.current_step == 'conclusion':
     - [Scikit-learn Documentation](https://scikit-learn.org/stable/documentation.html)
     - [Machine Learning Mastery](https://machinelearningmastery.com)
     - [Towards Data Science](https://towardsdatascience.com)
-    - [SHAP Documentation](https://shap.readthedocs.io/en/latest/)
+    - [Feature Importance in scikit-learn](https://scikit-learn.org/stable/modules/permutation_importance.html)
     
     Thank you for using this Telco Customer Churn Prediction application!
     """)
