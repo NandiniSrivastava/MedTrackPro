@@ -740,33 +740,66 @@ elif st.session_state.current_step == 'model_interpretation':
                         X_sample = st.session_state.X_test
                     
                     # Generate SHAP-like summary plot
-                    from explanation import create_shap_summary_plot
-                    summary_plot = create_shap_summary_plot(
-                        st.session_state.model,
-                        st.session_state.model_type, 
-                        st.session_state.X_test,
-                        st.session_state.feature_names
-                    )
+                    from explanation import create_shap_summary_plot, create_shap_bar_plot
                     
-                    st.pyplot(summary_plot)
+                    # Create tabbed interface for different SHAP plot types
+                    shap_tab1, shap_tab2 = st.tabs(["SHAP Summary Plot", "SHAP Bar Plot"])
                     
-                    with st.expander("How to interpret SHAP Summary Plots?"):
-                        st.markdown("""
-                        This SHAP-like summary plot shows the impact of each feature on the model's predictions:
+                    with shap_tab1:
+                        st.markdown("### SHAP Summary Plot")
+                        st.write("This plot shows how features impact predictions across the dataset.")
+                        summary_plot = create_shap_summary_plot(
+                            st.session_state.model,
+                            st.session_state.model_type, 
+                            st.session_state.X_test,
+                            st.session_state.feature_names
+                        )
+                        st.pyplot(summary_plot)
+                    
+                    with shap_tab2:
+                        st.markdown("### SHAP Bar Plot")
+                        st.write("This plot shows the average magnitude of feature impacts on model output.")
+                        bar_plot = create_shap_bar_plot(
+                            st.session_state.model,
+                            st.session_state.model_type,
+                            st.session_state.X_test,
+                            st.session_state.feature_names
+                        )
+                        st.pyplot(bar_plot)
+                    
+                    # Add SHAP plot explanations
+                    with shap_tab1:
+                        with st.expander("How to interpret SHAP Summary Plots?"):
+                            st.markdown("""
+                            This SHAP-like summary plot shows the impact of each feature on the model's predictions:
+                            
+                            - Each point represents one sample/instance in the data
+                            - Features are ordered by importance (top to bottom)
+                            - Position on x-axis shows the impact on prediction:
+                              - Points to the right (positive values) push prediction higher (toward churn)
+                              - Points to the left (negative values) push prediction lower (away from churn)
+                            - Color represents the feature value:
+                              - Red = high feature value
+                              - Blue = low feature value
+                              
+                            When you see a clustering of red points on the right side for a feature, it means high values of that feature tend to increase churn probability.
+                            
+                            Similarly, blue points on the left mean low values of that feature tend to decrease churn probability.
+                            """)
+                    
+                    with shap_tab2:
+                        with st.expander("How to interpret SHAP Bar Plots?"):
+                            st.markdown("""
+                            This SHAP-like bar plot shows the average magnitude of feature impacts:
+                            
+                            - Features are ordered by importance (most important at the top)
+                            - Bar length represents the average absolute SHAP value for each feature
+                            - Longer bars indicate features with greater overall impact on predictions
+                            - This plot shows which features are most influential overall but doesn't show direction of impact
+                            
+                            Use this plot to identify which features are most important for the model's predictions across all samples.
+                            """)
                         
-                        - Each point represents one sample/instance in the data
-                        - Features are ordered by importance (top to bottom)
-                        - Position on x-axis shows the impact on prediction:
-                          - Points to the right (positive values) push prediction higher (toward churn)
-                          - Points to the left (negative values) push prediction lower (away from churn)
-                        - Color represents the feature value:
-                          - Red = high feature value
-                          - Blue = low feature value
-                          
-                        When you see a clustering of red points on the right side for a feature, it means high values of that feature tend to increase churn probability.
-                        
-                        Similarly, blue points on the left mean low values of that feature tend to decrease churn probability.
-                        """)
                     
                 except Exception as e:
                     st.error(f"Error generating feature importance plot: {e}")
@@ -883,6 +916,8 @@ elif st.session_state.current_step == 'conclusion':
     - [Machine Learning Mastery](https://machinelearningmastery.com)
     - [Towards Data Science](https://towardsdatascience.com)
     - [Feature Importance in scikit-learn](https://scikit-learn.org/stable/modules/permutation_importance.html)
+    - [SHAP (SHapley Additive exPlanations)](https://github.com/slundberg/shap)
+    - [Interpretable Machine Learning](https://christophm.github.io/interpretable-ml-book/)
     
     Thank you for using this Telco Customer Churn Prediction application!
     """)
