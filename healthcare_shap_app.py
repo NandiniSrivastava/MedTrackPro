@@ -510,9 +510,12 @@ elif app_mode == "SHAP Explanations":
                         instance_with = X_background.iloc[0].copy()
                         instance_without = X_background.iloc[0].copy()
                         
-                        # Set values for coalitions
-                        instance_with[coalition_with] = single_instance.iloc[0][coalition_with]
-                        instance_without[coalition_without] = single_instance.iloc[0][coalition_without]
+                        # Set values for coalitions, using proper indexing to avoid deprecation warnings
+                        for idx in coalition_with:
+                            instance_with.iloc[idx] = single_instance.iloc[0].iloc[idx]
+                        
+                        for idx in coalition_without:
+                            instance_without.iloc[idx] = single_instance.iloc[0].iloc[idx]
                         
                         # Transform instances
                         instance_with = np.array(instance_with).reshape(1, -1)
@@ -549,6 +552,9 @@ elif app_mode == "SHAP Explanations":
             # Create figure
             fig, ax = plt.subplots(figsize=(10, 8))
             
+            # Store the scatter plot object for the colorbar
+            sc = None
+            
             # For each feature (starting with most important)
             for i, feature in enumerate(feature_importance['Feature']):
                 feature_idx = feature_names.index(feature)
@@ -556,17 +562,36 @@ elif app_mode == "SHAP Explanations":
                 feature_value = features[:, feature_idx]
                 
                 # Normalize feature values
-                feature_value_norm = (feature_value - feature_value.min()) / (feature_value.max() - feature_value.min())
+                if feature_value.max() > feature_value.min():
+                    feature_value_norm = (feature_value - feature_value.min()) / (feature_value.max() - feature_value.min())
+                else:
+                    feature_value_norm = np.ones_like(feature_value) * 0.5
+                
+                # Create y-positions (with small jitter for visibility)
+                y_positions = np.ones(len(feature_shap)) * (len(feature_importance) - 1 - i)
+                y_jitter = np.random.normal(0, 0.1, size=len(feature_shap))
+                y_positions = y_positions + y_jitter
+                
+                # Make sure x and y are the same size
+                if len(feature_shap) != len(y_positions):
+                    # Truncate to the smaller size if necessary
+                    min_size = min(len(feature_shap), len(y_positions))
+                    feature_shap = feature_shap[:min_size]
+                    y_positions = y_positions[:min_size]
+                    feature_value_norm = feature_value_norm[:min_size]
                 
                 # Plot points in a scatter pattern, colored by feature value
-                sc = ax.scatter(
+                sc_temp = ax.scatter(
                     feature_shap,  # x position (SHAP value)
-                    len(feature_importance) - 1 - i,  # y position (feature rank)
+                    y_positions,  # y position (feature rank) with jitter
                     c=feature_value_norm,  # color by normalized feature value
                     cmap='coolwarm',  # colormap
                     alpha=0.8,  # transparency
                     s=30  # point size
                 )
+                
+                # Store the last scatter plot for the colorbar
+                sc = sc_temp
             
             # Add feature names to y-axis
             ax.set_yticks(range(len(feature_importance)))
@@ -576,9 +601,10 @@ elif app_mode == "SHAP Explanations":
             ax.set_xlabel('SHAP Value (Impact on Prediction)')
             ax.set_title('Feature Importance (Mean |SHAP Value|)')
             
-            # Add colorbar
-            cbar = plt.colorbar(sc, ax=ax)
-            cbar.set_label('Normalized Feature Value')
+            # Add colorbar if we have a scatter plot
+            if sc is not None:
+                cbar = plt.colorbar(sc, ax=ax)
+                cbar.set_label('Normalized Feature Value')
             
             # Add vertical line at x=0
             ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5)
