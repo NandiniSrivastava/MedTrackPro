@@ -739,29 +739,33 @@ elif st.session_state.current_step == 'model_interpretation':
                     else:
                         X_sample = st.session_state.X_test
                     
-                    # Generate permutation importance plot instead of SHAP
-                    summary_plot = explain_prediction_permutation(
+                    # Generate SHAP-like summary plot
+                    from explanation import create_shap_summary_plot
+                    summary_plot = create_shap_summary_plot(
                         st.session_state.model,
+                        st.session_state.model_type, 
                         st.session_state.X_test,
-                        st.session_state.y_test,
                         st.session_state.feature_names
                     )
                     
                     st.pyplot(summary_plot)
                     
-                    with st.expander("How to interpret Permutation Importance?"):
+                    with st.expander("How to interpret SHAP Summary Plots?"):
                         st.markdown("""
-                        Permutation Importance explains model predictions by measuring how much the model's performance decreases when a feature's values are randomly shuffled:
+                        This SHAP-like summary plot shows the impact of each feature on the model's predictions:
                         
+                        - Each point represents one sample/instance in the data
                         - Features are ordered by importance (top to bottom)
-                        - Longer bars indicate more important features
-                        - The values represent how much model performance decreases when each feature is shuffled
-                        - Higher values mean more important features
+                        - Position on x-axis shows the impact on prediction:
+                          - Points to the right (positive values) push prediction higher (toward churn)
+                          - Points to the left (negative values) push prediction lower (away from churn)
+                        - Color represents the feature value:
+                          - Red = high feature value
+                          - Blue = low feature value
+                          
+                        When you see a clustering of red points on the right side for a feature, it means high values of that feature tend to increase churn probability.
                         
-                        Unlike SHAP values, permutation importance:
-                        - Shows global feature importance rather than per-prediction impact
-                        - Is computationally efficient for large datasets
-                        - Doesn't depend on model internals, so works for any model type
+                        Similarly, blue points on the left mean low values of that feature tend to decrease churn probability.
                         """)
                     
                 except Exception as e:
@@ -821,14 +825,16 @@ elif st.session_state.current_step == 'model_interpretation':
                         
                         with st.expander("How to interpret this plot?"):
                             st.markdown("""
-                            This waterfall plot shows how each feature contributes to the prediction:
+                            This SHAP-like waterfall plot shows how each feature contributes to the prediction:
                             
-                            - The base value represents the average model output over the training dataset
+                            - The base value (gray) represents the average model output over the training dataset
                             - Red bars push the prediction higher (toward churn)
-                            - Blue bars push the prediction lower (away from churn)
-                            - The final value is the model's output for this specific customer
+                            - Green bars push the prediction lower (away from churn)
+                            - The blue bar shows the final prediction value
+                            - Each feature's contribution is shown with the exact value impact
                             
-                            Features at the top have the largest impact on this specific prediction.
+                            Features are ordered by their impact on this specific prediction.
+                            The connecting lines show how the prediction changes as each feature is added.
                             """)
                     
                     except Exception as e:
